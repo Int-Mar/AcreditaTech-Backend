@@ -1,6 +1,5 @@
 // usuarios_modelo.js
-// Aquí van todas las consultas a la base de datos relacionadas con usuarios.
-// Este archivo NO toma decisiones, solo habla con la base de datos.
+// Todas las consultas a la base de datos relacionadas con usuarios.
 
 const conexion = require('../conexion');
 
@@ -10,7 +9,7 @@ async function buscarPorCorreo(correo) {
     'SELECT id_usuario FROM musuario WHERE correo = $1',
     [correo]
   );
-  return resultado.rows[0]; // undefined si no existe
+  return resultado.rows[0];
 }
 
 // Busca un usuario por teléfono
@@ -40,17 +39,28 @@ async function crearUsuario(datos) {
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING id_usuario`,
     [
-      1,              // $1 — tipo 1 = Trabajador siempre
+      1,
       datos.id_alcaldia,
       datos.id_oficio,
       datos.nombre,
       datos.correo,
-      datos.contrasena, // ya viene cifrada desde el controlador
+      datos.contrasena,
       datos.telefono,
       datos.curp
     ]
   );
-  return resultado.rows[0]; // { id_usuario: 5 }
+  return resultado.rows[0];
+}
+
+// Busca un usuario por correo y regresa TODO lo necesario para el login
+async function buscarParaLogin(correo) {
+  const resultado = await conexion.query(
+    `SELECT id_usuario, id_tipo_usuario, contrasena
+     FROM musuario
+     WHERE correo = $1`,
+    [correo]
+  );
+  return resultado.rows[0]; // undefined si no existe
 }
 
 // Regresa todas las alcaldías
@@ -74,6 +84,7 @@ module.exports = {
   buscarPorTelefono,
   buscarPorCurp,
   crearUsuario,
+  buscarParaLogin,
   obtenerAlcaldias,
   obtenerOficios
 };
