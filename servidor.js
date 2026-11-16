@@ -22,5 +22,14 @@ app.get('/prueba-bd', async (req, res) => {
 
 // RUTAS_AQUI
 
+app.use('/api/acceso', require('./rutas/acceso_rutas'));
+app.use('/api/perfil', require('./rutas/perfil_rutas'));
+app.use('/api/evaluaciones', require('./rutas/evaluaciones_rutas'));
+app.use('/api/salud', require('./rutas/salud_rutas'));
+app.use('/api/guias', require('./rutas/guias_rutas'));
+app.use('/api/avance', require('./rutas/avance_rutas'));
+app.use('/api/constancia', require('./rutas/constancia_rutas'));
+app.use('/api/administracion', require('./rutas/administracion_rutas'));
+
 const puerto = process.env.PORT || process.env.PUERTO || 4000;
 app.listen(puerto, () => console.log('Servidor en el puerto ' + puerto));
