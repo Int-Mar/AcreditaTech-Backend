@@ -79,6 +79,59 @@ async function obtenerOficios() {
   return resultado.rows;
 }
 
+// Busca todos los datos del perfil de un usuario por su id
+async function obtenerPerfil(id_usuario) {
+  const resultado = await conexion.query(
+    `SELECT u.id_usuario, u.nombre, u.correo, u.telefono, u.curp,
+            u.foto_url, u.estatus, u.fecha_registro,
+            u.id_alcaldia, a.nombre_alcaldia,
+            u.id_oficio,   o.nombre_oficio
+     FROM musuario u
+     JOIN calcaldia a ON u.id_alcaldia = a.id_alcaldia
+     JOIN coficio   o ON u.id_oficio   = o.id_oficio
+     WHERE u.id_usuario = $1`,
+    [id_usuario]
+  );
+  return resultado.rows[0];
+}
+
+// Edita nombre, teléfono, alcaldía y oficio
+async function actualizarPerfil(id_usuario, datos) {
+  const resultado = await conexion.query(
+    `UPDATE musuario
+     SET nombre      = $1,
+         telefono    = $2,
+         id_alcaldia = $3,
+         id_oficio   = $4
+     WHERE id_usuario = $5
+     RETURNING id_usuario`,
+    [datos.nombre, datos.telefono, datos.id_alcaldia, datos.id_oficio, id_usuario]
+  );
+  return resultado.rows[0];
+}
+
+// Guarda la URL pública de la foto en la base de datos
+async function actualizarFoto(id_usuario, foto_url) {
+  const resultado = await conexion.query(
+    `UPDATE musuario
+     SET foto_url = $1
+     WHERE id_usuario = $2
+     RETURNING id_usuario`,
+    [foto_url, id_usuario]
+  );
+  return resultado.rows[0];
+}
+
+// Busca si un teléfono ya existe en OTRO usuario (para validar al editar)
+async function buscarTelefonoDeOtro(telefono, id_usuario) {
+  const resultado = await conexion.query(
+    `SELECT id_usuario FROM musuario
+     WHERE telefono = $1 AND id_usuario != $2`,
+    [telefono, id_usuario]
+  );
+  return resultado.rows[0];
+}
+
 module.exports = {
   buscarPorCorreo,
   buscarPorTelefono,
@@ -86,5 +139,9 @@ module.exports = {
   crearUsuario,
   buscarParaLogin,
   obtenerAlcaldias,
-  obtenerOficios
+  obtenerOficios,
+  obtenerPerfil,
+  actualizarPerfil,
+  actualizarFoto,
+  buscarTelefonoDeOtro
 };
