@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node servidor.js",
-    "dev": "nodemon servidor.js"
+  "start": "node servidor.js",
+  "dev": "nodemon servidor.js"
   },
   "keywords": [],
   "author": "",
@@ -23,5 +23,13 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Int-Mar/AcreditaTech-Backend.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Int-Mar/AcreditaTech-Backend/issues"
+  },
+  "homepage": "https://github.com/Int-Mar/AcreditaTech-Backend#readme"
 }
