@@ -45,3 +45,34 @@ async function cambiarEstatus(req, res) {
   }
 }
 
+async function obtenerPerfil(req, res) {
+  try {
+    const perfil = await modelo.obtenerPerfilAdmin(req.usuario.id_usuario);
+    if (!perfil) return res.status(404).json({ mensaje: 'Perfil no encontrado' });
+    res.json(perfil);
+  } catch (error) {
+    res.status(500).json({ mensaje: 'Error al obtener el perfil' });
+  }
+}
+
+async function editarPerfil(req, res) {
+  const { nombre } = req.body;
+  if (!esNombre(nombre)) {
+    return res.status(400).json({ mensaje: 'Nombre: solo letras, de 5 a 25 caracteres' });
+  }
+  try {
+    const perfil = await modelo.actualizarNombreAdmin(req.usuario.id_usuario, nombre);
+    res.json({ mensaje: 'Perfil actualizado', nombre: perfil.nombre });
+  } catch (error) {
+    res.status(500).json({ mensaje: 'Error al actualizar el perfil' });
+  }
+}
+
+module.exports = {
+  obtenerEstatus,
+  obtenerPadron,
+  cambiarEstatus,
+  obtenerPerfil,
+  editarPerfil,
+};
+
