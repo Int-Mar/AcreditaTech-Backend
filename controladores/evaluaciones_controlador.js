@@ -81,3 +81,48 @@ async function iniciar(req, res) {
     res.status(500).json({ mensaje: 'Error al iniciar el test' });
   }
 }
+
+async function verPregunta(req, res) {
+  const tipo = leerTipo(req);
+  if (!tipo) {
+    return res.status(400).json({ mensaje: 'Tipo de test inválido (usa 1 o 2)' });
+  }
+
+  try {
+    const id_usuario = req.usuario.id_usuario;
+
+    const evaluacion = await modelo.buscarEvaluacion(id_usuario, tipo);
+    if (!evaluacion || !evaluacion.en_curso) {
+      return res.status(400).json({ mensaje: 'Primero debes iniciar el test' });
+    }
+
+    const id_oficio = await oficioDeLasPreguntas(tipo, id_usuario);
+    const total = Math.min(await modelo.contarPreguntas(tipo, id_oficio), 10);
+
+    const pregunta = await modelo.obtenerPreguntaPorPosicion(
+      tipo,
+      id_oficio,
+      evaluacion.caso_actual
+    );
+    if (!pregunta) {
+      return res.status(404).json({ mensaje: 'No se encontró la pregunta' });
+    }
+
+    const opciones = await modelo.obtenerOpciones(pregunta.id_pregunta);
+
+    res.json({
+      caso: evaluacion.caso_actual,
+      total_casos: total,
+      pregunta: {
+        id_pregunta: pregunta.id_pregunta,
+        tema: pregunta.tema,
+        texto: pregunta.texto,
+        opciones,
+      },
+    });
+
+  } catch (error) {
+    console.error('Error al ver la pregunta:', error.message);
+    res.status(500).json({ mensaje: 'Error al obtener la pregunta' });
+  }
+}
