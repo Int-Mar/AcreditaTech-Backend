@@ -201,3 +201,50 @@ async function responder(req, res) {
   }
 }
 
+async function verEstado(req, res) {
+  const tipo = leerTipo(req);
+  if (!tipo) {
+    return res.status(400).json({ mensaje: 'Tipo de test inválido (usa 1 o 2)' });
+  }
+
+  try {
+    const evaluacion = await modelo.buscarEvaluacion(req.usuario.id_usuario, tipo);
+
+    if (!evaluacion) {
+      return res.json({
+        calificacion: 0,
+        estado: 'Pendiente',
+        intentos_usados: 0,
+        max_intentos: reglas.MAX_INTENTOS,
+        bloqueado: false,
+        bloqueado_hasta: null,
+      });
+    }
+
+    const horas = horasQueFaltan(evaluacion);
+    const bloqueado = horas > 0;
+
+    const reiniciaran =
+      evaluacion.intentos_acumulados >= reglas.MAX_INTENTOS && !bloqueado;
+
+    res.json({
+      calificacion: Number(evaluacion.calificacion),
+      estado: evaluacion.estado_aprobacion,
+      intentos_usados: reiniciaran ? 0 : evaluacion.intentos_acumulados,
+      max_intentos: reglas.MAX_INTENTOS,
+      bloqueado,
+      bloqueado_hasta: bloqueado
+        ? new Date(
+            new Date(evaluacion.fecha_ultimo_intento).getTime() +
+              reglas.HORAS_BLOQUEO * 60 * 60 * 1000
+          ).toISOString()
+        : null,
+    });
+
+  } catch (error) {
+    console.error('Error al ver el estado:', error.message);
+    res.status(500).json({ mensaje: 'Error al obtener el estado' });
+  }
+}
+
+module.exports = { iniciar, verPregunta, responder, verEstado };
