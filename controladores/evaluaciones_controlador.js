@@ -126,3 +126,78 @@ async function verPregunta(req, res) {
     res.status(500).json({ mensaje: 'Error al obtener la pregunta' });
   }
 }
+
+async function responder(req, res) {
+  const tipo = leerTipo(req);
+  if (!tipo) {
+    return res.status(400).json({ mensaje: 'Tipo de test inválido (usa 1 o 2)' });
+  }
+
+  const id_pregunta = parseInt(req.body.id_pregunta, 10);
+  const id_opcion = parseInt(req.body.id_opcion, 10);
+  if (!id_pregunta || !id_opcion) {
+    return res.status(400).json({ mensaje: 'Faltan id_pregunta e id_opcion' });
+  }
+
+  try {
+    const id_usuario = req.usuario.id_usuario;
+
+    const evaluacion = await modelo.buscarEvaluacion(id_usuario, tipo);
+    if (!evaluacion || !evaluacion.en_curso) {
+      return res.status(400).json({ mensaje: 'Primero debes iniciar el test' });
+    }
+
+    const id_oficio = await oficioDeLasPreguntas(tipo, id_usuario);
+    const total = Math.min(await modelo.contarPreguntas(tipo, id_oficio), 10);
+
+    const actual = await modelo.obtenerPreguntaPorPosicion(
+      tipo,
+      id_oficio,
+      evaluacion.caso_actual
+    );
+    if (!actual || actual.id_pregunta !== id_pregunta) {
+      return res.status(400).json({ mensaje: 'Esa no es la pregunta actual' });
+    }
+
+    const opcion = await modelo.obtenerOpcion(id_opcion);
+    if (!opcion || opcion.id_pregunta !== id_pregunta) {
+      return res.status(400).json({ mensaje: 'La opción no pertenece a esa pregunta' });
+    }
+
+    const guardada = await modelo.registrarRespuesta(
+      evaluacion.id_evaluacion,
+      id_pregunta,
+      id_opcion,
+      opcion.puntos,
+      evaluacion.caso_actual
+    );
+    if (!guardada) {
+      return res.status(409).json({ mensaje: 'Esta pregunta ya fue contestada' });
+    }
+
+    if (evaluacion.caso_actual < total) {
+      return res.json({
+        finalizado: false,
+        siguiente_caso: evaluacion.caso_actual + 1,
+        total_casos: total,
+      });
+    }
+
+    const calificacion = await modelo.sumarPuntos(evaluacion.id_evaluacion);
+    const aprobado = calificacion > reglas.PUNTAJE_MINIMO;
+    const estado = aprobado ? 'Aprobado' : 'No aprobado';
+    await modelo.cerrarEvaluacion(evaluacion.id_evaluacion, calificacion, estado, aprobado);
+
+    res.json({
+      finalizado: true,
+      calificacion,
+      aprobado,
+      estado,
+    });
+
+  } catch (error) {
+    console.error('Error al responder:', error.message);
+    res.status(500).json({ mensaje: 'Error al guardar la respuesta' });
+  }
+}
+
