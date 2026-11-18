@@ -75,3 +75,43 @@ async function obtenerOpciones(id_pregunta) {
   );
   return resultado.rows;
 }
+
+async function obtenerOpcion(id_opcion) {
+  const resultado = await conexion.query(
+    'SELECT id_opcion, id_pregunta, puntos FROM copcion WHERE id_opcion = $1',
+    [id_opcion]
+  );
+  return resultado.rows[0];
+}
+
+async function registrarRespuesta(id_evaluacion, id_pregunta, id_opcion, puntos, caso) {
+  const cliente = await conexion.connect();
+  try {
+    await cliente.query('BEGIN');
+
+    const avance = await cliente.query(
+      `UPDATE eevaluacion
+       SET caso_actual = caso_actual + 1
+       WHERE id_evaluacion = $1 AND caso_actual = $2`,
+      [id_evaluacion, caso]
+    );
+    if (avance.rowCount === 0) {
+      await cliente.query('ROLLBACK');
+      return false;
+    }
+
+    await cliente.query(
+      `INSERT INTO erespuesta (id_evaluacion, id_pregunta, id_opcion, puntos)
+       VALUES ($1, $2, $3, $4)`,
+      [id_evaluacion, id_pregunta, id_opcion, puntos]
+    );
+
+    await cliente.query('COMMIT');
+    return true;
+  } catch (error) {
+    await cliente.query('ROLLBACK');
+    throw error;
+  } finally {
+    cliente.release();
+  }
+}
