@@ -115,3 +115,54 @@ async function registrarRespuesta(id_evaluacion, id_pregunta, id_opcion, puntos,
     cliente.release();
   }
 }
+
+async function sumarPuntos(id_evaluacion) {
+  const resultado = await conexion.query(
+    `SELECT COALESCE(SUM(puntos), 0)::int AS total
+     FROM erespuesta
+     WHERE id_evaluacion = $1`,
+    [id_evaluacion]
+  );
+  return resultado.rows[0].total;
+}
+
+async function cerrarEvaluacion(id_evaluacion, calificacion, estado, aprobado) {
+  await conexion.query(
+    `UPDATE eevaluacion
+     SET calificacion = $2,
+         estado_aprobacion = $3,
+         en_curso = false,
+         intentos_acumulados = CASE
+           WHEN $4::boolean THEN intentos_acumulados
+           ELSE COALESCE(intentos_acumulados, 0) + 1
+         END,
+         fecha_ultimo_intento = CASE
+           WHEN $4::boolean THEN fecha_ultimo_intento
+           ELSE now()
+         END
+     WHERE id_evaluacion = $1`,
+    [id_evaluacion, calificacion, estado, aprobado]
+  );
+}
+
+async function reiniciarIntentos(id_evaluacion) {
+  await conexion.query(
+    'UPDATE eevaluacion SET intentos_acumulados = 0 WHERE id_evaluacion = $1',
+    [id_evaluacion]
+  );
+}
+
+module.exports = {
+  obtenerOficioUsuario,
+  buscarEvaluacion,
+  crearEvaluacion,
+  empezarIntento,
+  contarPreguntas,
+  obtenerPreguntaPorPosicion,
+  obtenerOpciones,
+  obtenerOpcion,
+  registrarRespuesta,
+  sumarPuntos,
+  cerrarEvaluacion,
+  reiniciarIntentos,
+};
