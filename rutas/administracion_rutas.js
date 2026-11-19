@@ -14,6 +14,7 @@ router.put('/perfil', controlador.editarPerfil);
 
 // Las usan mis pantallas (usuarios y estadísticas)
 router.get('/usuarios', controlador.listarUsuarios);
+router.get('/usuarios/:id', controlador.obtenerUsuario);
 
 module.exports = router;
 

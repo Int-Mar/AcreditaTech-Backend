@@ -1,6 +1,10 @@
 const modelo = require('../modelos/administracion_modelo');
 const { esNombre, esTexto, esCorreoGmail } = require('../seguridad/validaciones');
 
+function esIdValido(valor) {
+  return Number.isInteger(Number(valor)) && Number(valor) > 0;
+}
+
 function obtenerEstatus(req, res) {
   res.json(modelo.ESTATUS);
 }
@@ -82,6 +86,19 @@ async function listarUsuarios(req, res) {
   }
 }
 
+async function obtenerUsuario(req, res) {
+  if (!esIdValido(req.params.id)) {
+    return res.status(400).json({ error: 'Id no válido' });
+  }
+  try {
+    const usuario = await modelo.obtenerUsuario(req.params.id);
+    if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' });
+    res.json(usuario);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
 module.exports = {
   obtenerEstatus,
   obtenerPadron,
@@ -89,5 +106,6 @@ module.exports = {
   obtenerPerfil,
   editarPerfil,
   listarUsuarios,
+  obtenerUsuario,
 };
 
