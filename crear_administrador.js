@@ -11,7 +11,7 @@ async function crearAdministrador() {
 
   const cifrada = await bcrypt.hash(contrasena, 10);
 
-  await conexion.query(
+   const resultado = await conexion.query(
     `INSERT INTO musuario
        (id_tipo_usuario, id_alcaldia, id_oficio, nombre, correo,
         contrasena, telefono, curp)
@@ -20,7 +20,11 @@ async function crearAdministrador() {
     [reglas.ROL_ADMINISTRADOR, correo, cifrada, telefono, curp]
   );
 
-  console.log('Administrador creado. Correo: ' + correo + ' | Contraseña: ' + contrasena);
+    if (resultado.rowCount === 0) {
+    console.log('No se insertó: el correo, teléfono o CURP ya existen.');
+  } else {
+    console.log('Administrador creado. Correo: ' + correo + ' | Contraseña: ' + contrasena);
+  }
 
   await conexion.end();
 }
