@@ -144,6 +144,9 @@ async function cambiarBloqueo(req, res) {
   if (typeof bloqueado !== 'boolean') {
     return res.status(400).json({ error: 'Envía { "bloqueado": true } o { "bloqueado": false }' });
   }
+    if (Number(req.params.id) === req.usuario.id_usuario) {
+    return res.status(400).json({ error: 'No puedes bloquearte a ti mismo' });
+  }
   try {
     const usuario = await modelo.cambiarBloqueo(req.params.id, bloqueado);
     if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' });
