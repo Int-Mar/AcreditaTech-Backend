@@ -16,6 +16,7 @@ router.put('/perfil', controlador.editarPerfil);
 router.get('/usuarios', controlador.listarUsuarios);
 router.get('/usuarios/:id', controlador.obtenerUsuario);
 router.put('/usuarios/:id', controlador.actualizarUsuario);
+router.put('/usuarios/:id/bloqueo', controlador.cambiarBloqueo);
 
 module.exports = router;
 

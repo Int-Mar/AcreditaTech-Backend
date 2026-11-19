@@ -124,7 +124,7 @@ async function actualizarUsuario(req, res) {
     });
     if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' });
     res.json(usuario);
-    
+
     } catch (error) {
     if (error.code === '23505') {
       return res.status(409).json({ error: 'El correo o teléfono ya existe' });
@@ -132,6 +132,23 @@ async function actualizarUsuario(req, res) {
     if (error.code === '23503') {
       return res.status(400).json({ error: 'Alcaldía u oficio no válido' });
     }
+    res.status(500).json({ error: error.message });
+  }
+}
+
+async function cambiarBloqueo(req, res) {
+  if (!esIdValido(req.params.id)) {
+    return res.status(400).json({ error: 'Id no válido' });
+  }
+  const { bloqueado } = req.body;
+  if (typeof bloqueado !== 'boolean') {
+    return res.status(400).json({ error: 'Envía { "bloqueado": true } o { "bloqueado": false }' });
+  }
+  try {
+    const usuario = await modelo.cambiarBloqueo(req.params.id, bloqueado);
+    if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' });
+    res.json(usuario);
+  } catch (error) {
     res.status(500).json({ error: error.message });
   }
 }
@@ -145,5 +162,6 @@ module.exports = {
   listarUsuarios,
   obtenerUsuario,
   actualizarUsuario,
+  cambiarBloqueo,
 };
 
