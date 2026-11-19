@@ -68,11 +68,26 @@ async function editarPerfil(req, res) {
   }
 }
 
+// ---------- Mis pantallas (usuarios y estadísticas) leen "error" ----------
+async function listarUsuarios(req, res) {
+  try {
+    const usuarios = await modelo.listarUsuarios({
+      q: req.query.q,
+      id_oficio: req.query.oficio,
+      id_alcaldia: req.query.alcaldia,
+    });
+    res.json(usuarios);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
 module.exports = {
   obtenerEstatus,
   obtenerPadron,
   cambiarEstatus,
   obtenerPerfil,
   editarPerfil,
+  listarUsuarios,
 };
 

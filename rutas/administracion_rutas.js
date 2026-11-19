@@ -11,5 +11,9 @@ router.get('/padron/:tipo', controlador.obtenerPadron);
 router.get('/perfil', controlador.obtenerPerfil);
 router.put('/perfil', controlador.editarPerfil);
 
+
+// Las usan mis pantallas (usuarios y estadísticas)
+router.get('/usuarios', controlador.listarUsuarios);
+
 module.exports = router;
 
