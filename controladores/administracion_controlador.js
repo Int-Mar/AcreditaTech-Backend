@@ -156,6 +156,15 @@ async function cambiarBloqueo(req, res) {
   }
 }
 
+async function obtenerEstadisticas(req, res) {
+  try {
+    const datos = await modelo.obtenerEstadisticas();
+    res.json(datos);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
 module.exports = {
   obtenerEstatus,
   obtenerPadron,
@@ -166,5 +175,6 @@ module.exports = {
   obtenerUsuario,
   actualizarUsuario,
   cambiarBloqueo,
+  obtenerEstadisticas,
 };
 
