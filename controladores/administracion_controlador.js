@@ -99,6 +99,27 @@ async function obtenerUsuario(req, res) {
   }
 }
 
+async function actualizarUsuario(req, res) {
+  if (!esIdValido(req.params.id)) {
+    return res.status(400).json({ error: 'Id no válido' });
+  }
+  const { nombre, telefono, correo, id_alcaldia, id_oficio } = req.body;
+
+  if (nombre !== undefined && !esNombre(nombre)) {
+    return res.status(400).json({ error: 'Nombre: solo letras, de 5 a 25 caracteres' });
+  }
+
+  try {
+    const usuario = await modelo.actualizarUsuario(req.params.id, {
+      nombre, telefono, correo, id_alcaldia, id_oficio,
+    });
+    if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' });
+    res.json(usuario);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
 module.exports = {
   obtenerEstatus,
   obtenerPadron,
@@ -107,5 +128,6 @@ module.exports = {
   editarPerfil,
   listarUsuarios,
   obtenerUsuario,
+  actualizarUsuario,
 };
 
