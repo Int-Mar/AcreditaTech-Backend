@@ -112,14 +112,26 @@ async function actualizarUsuario(req, res) {
     if (telefono !== undefined && !/^55\d{8}$/.test(telefono)) {
     return res.status(400).json({ error: 'Teléfono: 10 dígitos y empieza con 55' });
   }
-  
+
+    if (correo !== undefined &&
+      !(typeof correo === 'string' && esCorreoGmail(correo.trim().toLowerCase()))) {
+    return res.status(400).json({ error: 'Correo: debe terminar en @gmail.com (máximo 50)' });
+  }
+
   try {
     const usuario = await modelo.actualizarUsuario(req.params.id, {
       nombre, telefono, correo, id_alcaldia, id_oficio,
     });
     if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' });
     res.json(usuario);
-  } catch (error) {
+    
+    } catch (error) {
+    if (error.code === '23505') {
+      return res.status(409).json({ error: 'El correo o teléfono ya existe' });
+    }
+    if (error.code === '23503') {
+      return res.status(400).json({ error: 'Alcaldía u oficio no válido' });
+    }
     res.status(500).json({ error: error.message });
   }
 }
