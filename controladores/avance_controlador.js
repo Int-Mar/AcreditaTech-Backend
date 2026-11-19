@@ -10,6 +10,7 @@ const ESTADOS_APROBADOS = ["Aprobado", "Apto"];
 
 const ESTATUS_EN_PROCESO = "En Diagnóstico";
 const ESTATUS_COMPLETADO = "Preparación Completada";
+const ESTATUS_VENCIDA = "Vencida";
 
 // Busca la evaluación más reciente de un tipo (1 técnica, 2 salud)
 function buscarEvaluacion(evaluaciones, tipo) {
@@ -57,9 +58,21 @@ async function verAvance(req, res) {
     // Cada prueba aprobada suma 50%
     const porcentaje = (tecnica.aprobada ? 50 : 0) + (salud.aprobada ? 50 : 0);
 
-    // Estatus: con las dos pruebas aprobadas queda "Preparación Completada"
-    const estatus =
-      porcentaje === 100 ? ESTATUS_COMPLETADO : ESTATUS_EN_PROCESO;
+    // "Vencida" se calcula con la fecha de vencimiento de la Pre-Constancia
+    // (no con un valor guardado). Si no tiene constancia, nunca está vencida.
+    const constancia = await modelo.obtenerVencimientoConstancia(id_usuario);
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const vencida =
+      Boolean(constancia) && new Date(constancia.fecha_vencimiento) < hoy;
+
+    // Estatus: Vencida, o Preparación Completada con las dos pruebas aprobadas
+    let estatus = ESTATUS_EN_PROCESO;
+    if (vencida) {
+      estatus = ESTATUS_VENCIDA;
+    } else if (porcentaje === 100) {
+      estatus = ESTATUS_COMPLETADO;
+    }
 
     // Se guarda en la base solo si cambió (el panel de administración lo lee de ahí)
     if (estatus !== usuario.estatus) {
