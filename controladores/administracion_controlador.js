@@ -109,6 +109,10 @@ async function actualizarUsuario(req, res) {
     return res.status(400).json({ error: 'Nombre: solo letras, de 5 a 25 caracteres' });
   }
 
+    if (telefono !== undefined && !/^55\d{8}$/.test(telefono)) {
+    return res.status(400).json({ error: 'Teléfono: 10 dígitos y empieza con 55' });
+  }
+  
   try {
     const usuario = await modelo.actualizarUsuario(req.params.id, {
       nombre, telefono, correo, id_alcaldia, id_oficio,
