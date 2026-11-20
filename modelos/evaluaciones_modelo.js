@@ -51,13 +51,14 @@ async function empezarIntento(id_evaluacion) {
 }
 
 // Cuenta cuántas preguntas tiene el test para este usuario.
-// Técnico y salud: las preguntas de su oficio.
+// Técnico y salud: las preguntas de su oficio y las que no tienen oficio
+// (las de salud se subieron sin oficio porque aplican a todos).
 async function contarPreguntas(tipo, id_oficio) {
   const resultado = await conexion.query(
     `SELECT COUNT(*)::int AS total
      FROM cpregunta
      WHERE id_tipo_evaluacion = $1
-       AND (id_oficio = $2 OR ($2::int IS NULL AND id_oficio IS NULL))`,
+       AND (id_oficio = $2 OR id_oficio IS NULL)`,
     [tipo, id_oficio]
   );
   return resultado.rows[0].total;
@@ -70,7 +71,7 @@ async function obtenerPreguntaPorPosicion(tipo, id_oficio, posicion) {
     `SELECT id_pregunta, tema, texto, tipo_pregunta
      FROM cpregunta
      WHERE id_tipo_evaluacion = $1
-       AND (id_oficio = $2 OR ($2::int IS NULL AND id_oficio IS NULL))
+       AND (id_oficio = $2 OR id_oficio IS NULL)
      ORDER BY id_pregunta
      OFFSET $3 LIMIT 1`,
     [tipo, id_oficio, posicion - 1]
