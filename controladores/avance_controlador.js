@@ -10,6 +10,7 @@ const ESTADOS_APROBADOS = ["Aprobado", "Apto"];
 
 const ESTATUS_EN_PROCESO = "En Diagnóstico";
 const ESTATUS_COMPLETADO = "Preparación Completada";
+const ESTATUS_VENCIDA = "Vencida";
 
 // Busca la evaluación más reciente de un tipo (1 técnica, 2 salud)
 function buscarEvaluacion(evaluaciones, tipo) {
@@ -34,7 +35,7 @@ function resumirPrueba(evaluacion) {
   };
 }
 
-// ── Ver avance ─────────────────────────────────────────────────────────────
+// Ver avance
 // GET /api/avance
 // Regresa el porcentaje, el estatus y el resultado de cada prueba.
 async function verAvance(req, res) {
@@ -57,13 +58,14 @@ async function verAvance(req, res) {
     // Cada prueba aprobada suma 50%
     const porcentaje = (tecnica.aprobada ? 50 : 0) + (salud.aprobada ? 50 : 0);
 
-    // Estatus: con las dos pruebas aprobadas queda "Preparación Completada"
-    const estatus =
-      porcentaje === 100 ? ESTATUS_COMPLETADO : ESTATUS_EN_PROCESO;
-
-    // Se guarda en la base solo si cambió (el panel de administración lo lee de ahí)
-    if (estatus !== usuario.estatus) {
-      await modelo.actualizarEstatus(id_usuario, estatus);
+    // Estatus: con las dos aprobadas queda "Preparación Completada".
+    // Si ya está "Vencida" no se toca: eso lo decide la Pre-Constancia.
+    let estatus = usuario.estatus;
+    if (estatus !== ESTATUS_VENCIDA) {
+      estatus = porcentaje === 100 ? ESTATUS_COMPLETADO : ESTATUS_EN_PROCESO;
+      if (estatus !== usuario.estatus) {
+        await modelo.actualizarEstatus(id_usuario, estatus);
+      }
     }
 
     // En salud ocupacional el trabajador no ve el número, solo el estado
