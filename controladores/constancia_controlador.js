@@ -1,7 +1,3 @@
-// constancia_controlador.js
-// Pre-Constancia: consulta su estado y descarga el PDF.
-// La Pre-Constancia es informativa: no sustituye una certificación oficial.
-
 const crypto = require("crypto");
 const PDFDocument = require("pdfkit");
 
@@ -13,14 +9,10 @@ const { dibujarConstancia } = require("../utilidades/constancia_pdf");
 const ESTADOS_APROBADOS = ["Aprobado", "Apto"];
 const ESTATUS_VENCIDA = "Vencida";
 
-// ── Funciones de apoyo ─────────────────────────────────────────────────────
-
-// Código único de la constancia, por ejemplo ACR-1A2B3C4D
 function generarCodigo() {
   return "ACR-" + crypto.randomBytes(4).toString("hex").toUpperCase();
 }
 
-// Firma digital sencilla (HMAC) con la clave secreta del servidor
 function firmar(texto) {
   return crypto
     .createHmac("sha256", process.env.CLAVE_FIRMA)
@@ -28,7 +20,6 @@ function firmar(texto) {
     .digest("hex");
 }
 
-// Convierte la fecha de la base a texto legible: 13/11/2026
 function formatearFecha(fecha) {
   return new Date(fecha).toLocaleDateString("es-MX", {
     day: "2-digit",
@@ -37,19 +28,16 @@ function formatearFecha(fecha) {
   });
 }
 
-// La vigencia se calcula al consultar: vigente si hoy no pasó del vencimiento
 function estaVigente(fecha_vencimiento) {
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
   return new Date(fecha_vencimiento) >= hoy;
 }
 
-// Busca la evaluación más reciente de un tipo
 function buscarEvaluacion(evaluaciones, tipo) {
   return evaluaciones.find((e) => e.tipo_evaluacion === tipo);
 }
 
-// Regla: solo se puede obtener la Pre-Constancia con las dos pruebas aprobadas
 function completoLasPruebas(evaluaciones) {
   const tecnica = buscarEvaluacion(evaluaciones, reglas.TIPO_TECNICA);
   const salud = buscarEvaluacion(evaluaciones, reglas.TIPO_SALUD);
@@ -61,8 +49,6 @@ function completoLasPruebas(evaluaciones) {
   );
 }
 
-// ── Descargar PDF ──────────────────────────────────────────────────────────
-// GET /api/constancia/pdf  (requiere sesión)
 async function descargarPdf(req, res) {
   try {
     const id_usuario = req.usuario.id_usuario;
@@ -72,7 +58,6 @@ async function descargarPdf(req, res) {
       return res.status(404).json({ mensaje: "Usuario no encontrado" });
     }
 
-    // Regla: solo si aprobó las dos pruebas (Preparación Completada)
     const evaluaciones = await modelo.obtenerEvaluacionesConId(id_usuario);
     const tecnica = buscarEvaluacion(evaluaciones, reglas.TIPO_TECNICA);
     const completo = completoLasPruebas(evaluaciones);
@@ -84,7 +69,6 @@ async function descargarPdf(req, res) {
       });
     }
 
-    // Si ya tiene constancia se reutiliza; si no, se crea una nueva
     let constancia = await modelo.buscarConstanciaDeUsuario(id_usuario);
 
     if (constancia && !estaVigente(constancia.fecha_vencimiento)) {
@@ -107,7 +91,6 @@ async function descargarPdf(req, res) {
       });
     }
 
-    // ── Armar el PDF (el diseño está en utilidades/constancia_pdf.js) ──
     const doc = new PDFDocument({ size: "A4", layout: "landscape", margin: 0 });
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
@@ -133,10 +116,6 @@ async function descargarPdf(req, res) {
   }
 }
 
-// ── Ver mi constancia ──────────────────────────────────────────────────────
-// GET /api/constancia  (requiere sesión)
-// Dice si el usuario ya tiene Pre-Constancia, si está vigente y si puede generarla.
-// No descarga el PDF: sirve para que la pantalla muestre el botón correcto.
 async function verMiConstancia(req, res) {
   try {
     const id_usuario = req.usuario.id_usuario;
@@ -156,7 +135,6 @@ async function verMiConstancia(req, res) {
       });
     }
 
-    // Todavía no tiene: puede generarla si aprobó las dos pruebas
     const evaluaciones = await modelo.obtenerEvaluacionesConId(id_usuario);
     res.json({
       tiene_constancia: false,
@@ -168,4 +146,33 @@ async function verMiConstancia(req, res) {
   }
 }
 
-module.exports = { verMiConstancia, descargarPdf };
+async function renovar(req, res) {
+  try {
+    const id_usuario = req.usuario.id_usuario;
+
+    const constancia = await modelo.buscarConstanciaDeUsuario(id_usuario);
+    if (!constancia) {
+      return res
+        .status(404)
+        .json({ mensaje: "No tienes una Pre-Constancia para renovar" });
+    }
+
+    if (estaVigente(constancia.fecha_vencimiento)) {
+      return res
+        .status(409)
+        .json({ mensaje: "Tu Pre-Constancia sigue vigente" });
+    }
+
+    await modelo.reiniciarParaRenovar(id_usuario);
+
+    res.json({
+      mensaje:
+        "Tus evaluaciones se reiniciaron. Vuelve a presentarlas para renovar tu Pre-Constancia",
+    });
+  } catch (error) {
+    console.error("Error al renovar la Pre-Constancia:", error.message);
+    res.status(500).json({ mensaje: "Error al renovar la Pre-Constancia" });
+  }
+}
+
+module.exports = { verMiConstancia, descargarPdf, renovar };
