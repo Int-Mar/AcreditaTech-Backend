@@ -46,9 +46,4 @@ async function actualizarEstatus(id_usuario, estatus) {
   );
 }
 
-module.exports = {
-  obtenerEvaluaciones,
-  obtenerEstatus,
-  obtenerVencimientoConstancia,
-  actualizarEstatus,
-};
+module.exports = { obtenerEvaluaciones, obtenerEstatus, actualizarEstatus };
