@@ -2,7 +2,7 @@ const conexion = require("../conexion");
 
 async function obtenerDatosTrabajador(id_usuario) {
   const resultado = await conexion.query(
-    `SELECT u.id_usuario, u.nombre, u.estatus,
+    `SELECT u.id_usuario, u.nombre, u.curp, u.estatus,
             o.nombre_oficio, a.nombre_alcaldia
      FROM musuario u
      JOIN coficio   o ON o.id_oficio   = u.id_oficio
