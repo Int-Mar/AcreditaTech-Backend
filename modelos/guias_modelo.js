@@ -1,9 +1,5 @@
-// guias_modelo.js
-// Consultas a la base de datos para las guías de capacitación (ctutorial).
-
 const conexion = require("../conexion");
 
-// Regresa el id del oficio de un usuario (o undefined si no existe)
 async function obtenerOficioDeUsuario(id_usuario) {
   const resultado = await conexion.query(
     "SELECT id_oficio FROM musuario WHERE id_usuario = $1",
@@ -12,8 +8,6 @@ async function obtenerOficioDeUsuario(id_usuario) {
   return resultado.rows[0];
 }
 
-// Regresa las guías de un oficio.
-// Si viene "tipo" (1 técnica, 2 salud) filtra por ese tipo.
 async function listarGuias(id_oficio, tipo) {
   let consulta = `
     SELECT id_tutorial, id_tipo_evaluacion, codigo, codigo_tema, tema,
@@ -33,11 +27,6 @@ async function listarGuias(id_oficio, tipo) {
   return resultado.rows;
 }
 
-// Regresa solo las guías de REFUERZO de un usuario.
-// Regla del Documento Maestro: una guía se habilita cuando el puntaje que el
-// trabajador obtuvo en su tema es igual o menor al 50% de los puntos de ese tema.
-// Se toma el último intento de cada prueba, y solo si ya la terminó.
-// "tipo" (1 técnica, 2 salud) es opcional.
 async function listarGuiasDeRefuerzo(id_usuario, id_oficio, tipo) {
   const resultado = await conexion.query(
     `WITH ultimas AS (
