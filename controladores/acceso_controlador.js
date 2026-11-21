@@ -4,6 +4,10 @@
 const bcrypt = require('bcryptjs');
 const jwt    = require('jsonwebtoken');
 const modelo = require('../modelos/usuarios_modelo');
+const {
+  esTexto, esNombre, esCorreoGmail, esTelefono55,
+  esContrasena, esCurp, esIdValido,
+} = require('../seguridad/validaciones');
 
 // ── Catálogos ──────────────────────────────────────────────────────────────
 // GET /api/acceso/catalogos
@@ -21,90 +25,83 @@ async function obtenerCatalogos(req, res) {
 // ── Registro ───────────────────────────────────────────────────────────────
 // POST /api/acceso/registro
 async function registrar(req, res) {
-  const {
-    nombre, correo, contrasena,
-    telefono, curp,
-    id_alcaldia, id_oficio,
-    acepta_terminos
-  } = req.body;
+  const cuerpo = req.body || {};
+  const { contrasena, telefono, id_alcaldia, id_oficio, acepta_terminos } = cuerpo;
 
-  // Validar que llegaron todos los campos
-  if (!nombre || !correo || !contrasena ||
-      !telefono || !curp ||
-      !id_alcaldia || !id_oficio) {
+  // 1. Los campos de texto deben llegar como texto. Si llegaba un número, un
+  //    arreglo o un objeto, .trim() fallaba y respondía 500; ahora responde 400.
+  if (![cuerpo.nombre, cuerpo.correo, contrasena, telefono, cuerpo.curp].every(esTexto)) {
     return res.status(400).json({ mensaje: 'Faltan datos obligatorios' });
   }
-
-  if (!acepta_terminos) {
+  if (!esIdValido(id_alcaldia) || !esIdValido(id_oficio)) {
+    return res.status(400).json({ mensaje: 'Faltan datos obligatorios' });
+  }
+  if (acepta_terminos !== true) {
     return res.status(400).json({ mensaje: 'Debes aceptar los términos' });
   }
 
-  // Nombre: solo letras y espacios, 5-25 caracteres
-  const regexNombre = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]{5,25}$/;
-  if (!regexNombre.test(nombre.trim())) {
+  // 2. Limpiar y normalizar ANTES de validar y de buscar duplicados
+  const nombre = cuerpo.nombre.trim();
+  const correo = cuerpo.correo.trim().toLowerCase();
+  const curp   = cuerpo.curp.trim().toUpperCase();
+
+  // 3. Validar el formato (las reglas viven en seguridad/validaciones.js)
+  if (!esNombre(nombre)) {
     return res.status(400).json({
       mensaje: 'Nombre inválido: solo letras, entre 5 y 25 caracteres'
     });
   }
-
-  // Teléfono: 10 dígitos empezando con 55
-  const regexTel = /^55\d{8}$/;
-  if (!regexTel.test(telefono)) {
+  if (!esTelefono55(telefono)) {
     return res.status(400).json({
       mensaje: 'Teléfono inválido: 10 dígitos comenzando con 55'
     });
   }
-
-  // Correo: termina en @gmail.com, máximo 50 caracteres
-  const regexCorreo = /^[a-zA-Z0-9._%+\-]+@gmail\.com$/;
-  if (!regexCorreo.test(correo) || correo.length > 50) {
+  if (!esCorreoGmail(correo)) {
     return res.status(400).json({
       mensaje: 'Correo inválido: debe ser @gmail.com de máximo 50 caracteres'
     });
   }
-
-  // Contraseña: 8-20 caracteres
-  if (contrasena.length < 8 || contrasena.length > 20) {
+  if (!esContrasena(contrasena)) {
     return res.status(400).json({
-      mensaje: 'Contraseña inválida: debe tener entre 8 y 20 caracteres'
+      mensaje: 'Contraseña inválida: 8 a 20 caracteres con mayúscula, minúscula, número y símbolo'
+    });
+  }
+  if (!esCurp(curp)) {
+    return res.status(400).json({
+      mensaje: 'CURP inválida: revisa que tenga el formato correcto (18 caracteres)'
     });
   }
 
-  // CURP: exactamente 18 caracteres
-  if (curp.length !== 18) {
-    return res.status(400).json({
-      mensaje: 'CURP inválida: debe tener 18 caracteres'
-    });
-  }
-
-  // Revisar duplicados
-  const correoExiste   = await modelo.buscarPorCorreo(correo);
-  const telefonoExiste = await modelo.buscarPorTelefono(telefono);
-  const curpExiste     = await modelo.buscarPorCurp(curp.toUpperCase());
-
-  if (correoExiste) {
-    return res.status(409).json({ mensaje: 'El correo ya está registrado' });
-  }
-  if (telefonoExiste) {
-    return res.status(409).json({ mensaje: 'El teléfono ya está registrado' });
-  }
-  if (curpExiste) {
-    return res.status(409).json({ mensaje: 'La CURP ya está registrada' });
-  }
-
-  // Cifrar la contraseña
-  const contrasenaCifrada = await bcrypt.hash(contrasena, 10);
-
-  // Guardar en la base de datos
   try {
+    // 4. La alcaldía y el oficio deben existir
+    const alcaldiaExiste = await modelo.existeAlcaldia(Number(id_alcaldia));
+    const oficioExiste   = await modelo.existeOficio(Number(id_oficio));
+    if (!alcaldiaExiste || !oficioExiste) {
+      return res.status(400).json({ mensaje: 'Alcaldía u oficio no válido' });
+    }
+
+    // 5. Revisar duplicados (ya con el correo en minúsculas y la CURP en mayúsculas)
+    if (await modelo.buscarPorCorreo(correo)) {
+      return res.status(409).json({ mensaje: 'El correo ya está registrado' });
+    }
+    if (await modelo.buscarPorTelefono(telefono)) {
+      return res.status(409).json({ mensaje: 'El teléfono ya está registrado' });
+    }
+    if (await modelo.buscarPorCurp(curp)) {
+      return res.status(409).json({ mensaje: 'La CURP ya está registrada' });
+    }
+
+    // 6. Cifrar la contraseña y guardar en la base de datos
+    const contrasenaCifrada = await bcrypt.hash(contrasena, 10);
+
     const nuevo = await modelo.crearUsuario({
       id_alcaldia:  Number(id_alcaldia),
       id_oficio:    Number(id_oficio),
-      nombre:       nombre.trim(),
-      correo:       correo.toLowerCase(),
+      nombre,
+      correo,
       contrasena:   contrasenaCifrada,
       telefono,
-      curp:         curp.toUpperCase()
+      curp
     });
 
     res.status(201).json({
@@ -113,6 +110,10 @@ async function registrar(req, res) {
     });
 
   } catch (error) {
+    // 23505 = violación de UNIQUE en PostgreSQL (dos registros al mismo tiempo)
+    if (error.code === '23505') {
+      return res.status(409).json({ mensaje: 'El correo, teléfono o CURP ya está registrado' });
+    }
     console.error('Error al registrar:', error.message);
     res.status(500).json({ mensaje: 'Error interno al registrar' });
   }
@@ -121,47 +122,58 @@ async function registrar(req, res) {
 // ── Login ──────────────────────────────────────────────────────────────────
 // POST /api/acceso/iniciar-sesion
 async function iniciarSesion(req, res) {
-  const { correo, contrasena } = req.body;
+  const { correo: correoCrudo, contrasena } = req.body || {};
 
-  // 1. Validar que llegaron los dos campos
-  if (!correo || !contrasena) {
+  // 1. Validar que llegaron los dos campos y que son texto
+  if (!esTexto(correoCrudo) || !esTexto(contrasena) ||
+      !correoCrudo.trim() || !contrasena) {
     return res.status(400).json({ mensaje: 'Faltan datos obligatorios' });
   }
 
-  // 2. Buscar el usuario en la base de datos
-  const usuario = await modelo.buscarParaLogin(correo.toLowerCase());
-
-  // 3. Si no existe el correo, responder igual que si la contraseña fuera mala
-  //    (nunca decimos cuál de los dos falló, por seguridad)
-  if (!usuario) {
+  // 2. Normalizar el correo y poner un tope de longitud (no se procesan textos enormes)
+  const correo = correoCrudo.trim().toLowerCase();
+  if (correo.length > 50 || contrasena.length > 72) {
     return res.status(401).json({ mensaje: 'Correo o contraseña incorrectos' });
   }
 
-  // 4. Comparar la contraseña que llegó con la cifrada que está en la BD
-  const contrasenaCorrecta = await bcrypt.compare(contrasena, usuario.contrasena);
+  try {
+    // 3. Buscar el usuario en la base de datos
+    const usuario = await modelo.buscarParaLogin(correo);
 
-  if (!contrasenaCorrecta) {
-    return res.status(401).json({ mensaje: 'Correo o contraseña incorrectos' });
-  }
+    // 4. Si no existe el correo, responder igual que si la contraseña fuera mala
+    //    (nunca decimos cuál de los dos falló, por seguridad)
+    if (!usuario) {
+      return res.status(401).json({ mensaje: 'Correo o contraseña incorrectos' });
+    }
 
-  // 5. Generar el token JWT
-  //    El token lleva id_usuario e id_tipo_usuario, dura 8 horas,
-  //    y está firmado con la clave secreta del .env
-  const token = jwt.sign(
-    {
-      id_usuario:      usuario.id_usuario,
+    // 5. Comparar la contraseña que llegó con la cifrada que está en la BD
+    const contrasenaCorrecta = await bcrypt.compare(contrasena, usuario.contrasena);
+
+    if (!contrasenaCorrecta) {
+      return res.status(401).json({ mensaje: 'Correo o contraseña incorrectos' });
+    }
+
+    // 6. Generar el token JWT (dura 8 horas, firmado con la clave del .env)
+    const token = jwt.sign(
+      {
+        id_usuario:      usuario.id_usuario,
+        id_tipo_usuario: usuario.id_tipo_usuario
+      },
+      process.env.CLAVE_TOKEN,
+      { expiresIn: '8h' }
+    );
+
+    // 7. Responder con el token
+    res.json({
+      mensaje: 'Sesión iniciada',
+      token,
       id_tipo_usuario: usuario.id_tipo_usuario
-    },
-    process.env.CLAVE_TOKEN,
-    { expiresIn: '8h' }
-  );
+    });
 
-  // 6. Responder con el token
-  res.json({
-    mensaje: 'Sesión iniciada',
-    token,
-    id_tipo_usuario: usuario.id_tipo_usuario
-  });
+  } catch (error) {
+    console.error('Error al iniciar sesión:', error.message);
+    res.status(500).json({ mensaje: 'Error interno al iniciar sesión' });
+  }
 }
 
 module.exports = { obtenerCatalogos, registrar, iniciarSesion };
