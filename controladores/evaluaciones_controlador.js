@@ -1,6 +1,11 @@
+// evaluaciones_controlador.js
+// Decide qué responder en cada petición del test.
+// Paso 4: iniciar el test y ver la pregunta.
+
 const modelo = require('../modelos/evaluaciones_modelo');
 const reglas = require('../reglas');
 
+// Revisa que el tipo de la dirección sea 1 (técnica) o 2 (salud)
 function leerTipo(req) {
   const tipo = parseInt(req.params.tipo, 10);
   if (tipo === reglas.TIPO_TECNICA || tipo === reglas.TIPO_SALUD) {
@@ -9,14 +14,15 @@ function leerTipo(req) {
   return null;
 }
 
+// Regresa a qué oficio pertenecen las preguntas.
+// Tanto el test técnico como el de salud usan las preguntas del oficio del usuario
+// (el Documento Maestro tiene 10 de salud por cada oficio).
 async function oficioDeLasPreguntas(tipo, id_usuario) {
-  if (tipo === reglas.TIPO_SALUD) {
-    return null;
-  }
   const usuario = await modelo.obtenerOficioUsuario(id_usuario);
   return usuario ? usuario.id_oficio : undefined;
 }
 
+// Cuántas horas faltan para que termine el bloqueo (0 si no está bloqueado)
 function horasQueFaltan(evaluacion) {
   if (evaluacion.intentos_acumulados < reglas.MAX_INTENTOS) {
     return 0;
@@ -31,6 +37,8 @@ function horasQueFaltan(evaluacion) {
   return faltan > 0 ? faltan : 0;
 }
 
+// ── Iniciar el test ───────────────────────────────────────────────────────
+// POST /api/evaluaciones/:tipo/iniciar
 async function iniciar(req, res) {
   const tipo = leerTipo(req);
   if (!tipo) {
@@ -40,6 +48,7 @@ async function iniciar(req, res) {
   try {
     const id_usuario = req.usuario.id_usuario;
 
+    // Revisar que haya preguntas para este usuario
     const id_oficio = await oficioDeLasPreguntas(tipo, id_usuario);
     if (id_oficio === undefined) {
       return res.status(404).json({ mensaje: 'Usuario no encontrado' });
@@ -49,11 +58,13 @@ async function iniciar(req, res) {
       return res.status(404).json({ mensaje: 'Todavía no hay preguntas para este test' });
     }
 
+    // Buscar la evaluación del usuario; si no existe, se crea
     let evaluacion = await modelo.buscarEvaluacion(id_usuario, tipo);
     if (!evaluacion) {
       evaluacion = await modelo.crearEvaluacion(id_usuario, tipo);
     }
 
+    // Si tiene 5 intentos fallidos y no pasan 24 horas, no lo dejamos empezar
     const horas = horasQueFaltan(evaluacion);
     if (horas > 0) {
       return res.status(403).json({
@@ -62,10 +73,14 @@ async function iniciar(req, res) {
       });
     }
 
+    // Si llegó al máximo de intentos y ya pasaron las 24 horas,
+    // los intentos vuelven a 0 y puede intentarlo de nuevo.
     if (evaluacion.intentos_acumulados >= reglas.MAX_INTENTOS) {
       await modelo.reiniciarIntentos(evaluacion.id_evaluacion);
     }
 
+    // Si había un test a medias, se continúa donde se quedó.
+    // Si no, se empieza un intento nuevo desde el caso 1.
     if (!evaluacion.en_curso) {
       evaluacion = await modelo.empezarIntento(evaluacion.id_evaluacion);
     }
@@ -82,6 +97,8 @@ async function iniciar(req, res) {
   }
 }
 
+// ── Ver la pregunta actual ────────────────────────────────────────────────
+// GET /api/evaluaciones/:tipo/pregunta
 async function verPregunta(req, res) {
   const tipo = leerTipo(req);
   if (!tipo) {
@@ -108,6 +125,7 @@ async function verPregunta(req, res) {
       return res.status(404).json({ mensaje: 'No se encontró la pregunta' });
     }
 
+    // Las opciones se mandan SIN los puntos
     const opciones = await modelo.obtenerOpciones(pregunta.id_pregunta);
 
     res.json({
@@ -117,6 +135,7 @@ async function verPregunta(req, res) {
         id_pregunta: pregunta.id_pregunta,
         tema: pregunta.tema,
         texto: pregunta.texto,
+        tipo_pregunta: pregunta.tipo_pregunta,
         opciones,
       },
     });
@@ -127,6 +146,10 @@ async function verPregunta(req, res) {
   }
 }
 
+// ── Responder una pregunta ────────────────────────────────────────────────
+// POST /api/evaluaciones/:tipo/respuesta
+// Recibe { id_pregunta, id_opcion } o, en preguntas de casillas,
+// { id_pregunta, id_opciones: [..] }
 async function responder(req, res) {
   const tipo = leerTipo(req);
   if (!tipo) {
@@ -134,10 +157,14 @@ async function responder(req, res) {
   }
 
   const id_pregunta = parseInt(req.body.id_pregunta, 10);
-  const id_opcion = parseInt(req.body.id_opcion, 10);
-  if (!id_pregunta || !id_opcion) {
+  const enviadas = Array.isArray(req.body.id_opciones)
+    ? req.body.id_opciones.map((x) => parseInt(x, 10))
+    : [parseInt(req.body.id_opcion, 10)];
+
+  if (!id_pregunta || enviadas.length === 0 || enviadas.some((x) => !x)) {
     return res.status(400).json({ mensaje: 'Faltan id_pregunta e id_opcion' });
   }
+  const ids = [...new Set(enviadas)];
 
   try {
     const id_usuario = req.usuario.id_usuario;
@@ -150,6 +177,7 @@ async function responder(req, res) {
     const id_oficio = await oficioDeLasPreguntas(tipo, id_usuario);
     const total = Math.min(await modelo.contarPreguntas(tipo, id_oficio), 10);
 
+    // Solo se puede contestar la pregunta actual (no se regresa ni se salta)
     const actual = await modelo.obtenerPreguntaPorPosicion(
       tipo,
       id_oficio,
@@ -159,22 +187,32 @@ async function responder(req, res) {
       return res.status(400).json({ mensaje: 'Esa no es la pregunta actual' });
     }
 
-    const opcion = await modelo.obtenerOpcion(id_opcion);
-    if (!opcion || opcion.id_pregunta !== id_pregunta) {
+    // Solo las preguntas de casillas aceptan más de una opción
+    if (ids.length > 1 && actual.tipo_pregunta !== 'checkbox') {
+      return res.status(400).json({ mensaje: 'Esta pregunta solo acepta una opción' });
+    }
+
+    // Todas las opciones deben existir y ser de esa pregunta
+    const opciones = await modelo.obtenerOpcionesPorIds(ids);
+    if (
+      opciones.length !== ids.length ||
+      opciones.some((o) => o.id_pregunta !== id_pregunta)
+    ) {
       return res.status(400).json({ mensaje: 'La opción no pertenece a esa pregunta' });
     }
 
-    const guardada = await modelo.registrarRespuesta(
+    // Guardar la respuesta y avanzar al siguiente caso
+    const guardada = await modelo.registrarRespuestas(
       evaluacion.id_evaluacion,
       id_pregunta,
-      id_opcion,
-      opcion.puntos,
+      opciones,
       evaluacion.caso_actual
     );
     if (!guardada) {
       return res.status(409).json({ mensaje: 'Esta pregunta ya fue contestada' });
     }
 
+    // Si todavía faltan preguntas, solo avisamos cuál sigue
     if (evaluacion.caso_actual < total) {
       return res.json({
         finalizado: false,
@@ -183,10 +221,17 @@ async function responder(req, res) {
       });
     }
 
+    // Era la última pregunta: sumar puntos y calificar.
+    // Más de 50 es aprobado; 50 o menos es no aprobado.
     const calificacion = await modelo.sumarPuntos(evaluacion.id_evaluacion);
     const aprobado = calificacion > reglas.PUNTAJE_MINIMO;
     const estado = aprobado ? 'Aprobado' : 'No aprobado';
     await modelo.cerrarEvaluacion(evaluacion.id_evaluacion, calificacion, estado, aprobado);
+
+    // En salud ocupacional el trabajador NO ve el número, solo si es apto o no
+    if (tipo === reglas.TIPO_SALUD) {
+      return res.json({ finalizado: true, aprobado, estado });
+    }
 
     res.json({
       finalizado: true,
@@ -201,6 +246,9 @@ async function responder(req, res) {
   }
 }
 
+// ── Ver el estado del test ────────────────────────────────────────────────
+// GET /api/evaluaciones/:tipo/estado
+// Regresa calificación, estado, intentos usados y si está bloqueado.
 async function verEstado(req, res) {
   const tipo = leerTipo(req);
   if (!tipo) {
@@ -210,9 +258,10 @@ async function verEstado(req, res) {
   try {
     const evaluacion = await modelo.buscarEvaluacion(req.usuario.id_usuario, tipo);
 
+    // Si nunca ha empezado este test, todo está en cero
     if (!evaluacion) {
       return res.json({
-        calificacion: 0,
+        calificacion: tipo === reglas.TIPO_SALUD ? null : 0,
         estado: 'Pendiente',
         intentos_usados: 0,
         max_intentos: reglas.MAX_INTENTOS,
@@ -224,11 +273,13 @@ async function verEstado(req, res) {
     const horas = horasQueFaltan(evaluacion);
     const bloqueado = horas > 0;
 
+    // Si ya pasó el bloqueo, los intentos cuentan como 0 (se reinician al iniciar)
     const reiniciaran =
       evaluacion.intentos_acumulados >= reglas.MAX_INTENTOS && !bloqueado;
 
     res.json({
-      calificacion: Number(evaluacion.calificacion),
+      calificacion:
+        tipo === reglas.TIPO_SALUD ? null : Number(evaluacion.calificacion),
       estado: evaluacion.estado_aprobacion,
       intentos_usados: reiniciaran ? 0 : evaluacion.intentos_acumulados,
       max_intentos: reglas.MAX_INTENTOS,

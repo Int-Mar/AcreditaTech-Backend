@@ -172,6 +172,19 @@ function dibujarConstancia(doc, datos) {
   doc.rect(X, 232, ANCHO, 1.5).fill(GRIS_CLA);
   doc.rect(X, 232, 70, 1.5).fill(NARANJA);
 
+  if (trabajador.curp) {
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(8)
+      .fillColor(GRIS)
+      .text("CURP", X, 245, { characterSpacing: 1.5, lineBreak: false });
+    doc
+      .font("Courier-Bold")
+      .fontSize(11)
+      .fillColor(AZUL_OSC)
+      .text(trabajador.curp, X + 38, 242, { lineBreak: false });
+  }
+
   doc
     .font("Helvetica")
     .fontSize(11)
@@ -180,20 +193,20 @@ function dibujarConstancia(doc, datos) {
       "por haber aprobado la evaluación técnica y la evaluación de salud y " +
         "seguridad, concluyendo su preparación en el oficio de:",
       X,
-      248,
+      270,
       { width: ANCHO - 120, lineGap: 3 },
     );
 
   // Tarjetas
   const sep = 14;
   const anchoT = (ANCHO - sep * 2) / 3;
-  dibujarTarjeta(doc, "Oficio", trabajador.nombre_oficio, X, 305, anchoT);
+  dibujarTarjeta(doc, "Oficio", trabajador.nombre_oficio, X, 326, anchoT);
   dibujarTarjeta(
     doc,
     "Alcaldía",
     trabajador.nombre_alcaldia,
     X + anchoT + sep,
-    305,
+    326,
     anchoT,
   );
   dibujarTarjeta(
@@ -201,7 +214,7 @@ function dibujarConstancia(doc, datos) {
     "Estado",
     "Preparación Completada",
     X + (anchoT + sep) * 2,
-    305,
+    326,
     anchoT,
   );
 

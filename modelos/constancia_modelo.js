@@ -1,12 +1,8 @@
-// constancia_modelo.js
-// Consultas a la base de datos para la Pre-Constancia (tabla mpre_constancia).
-
 const conexion = require("../conexion");
 
-// Datos del trabajador para escribir en el PDF
 async function obtenerDatosTrabajador(id_usuario) {
   const resultado = await conexion.query(
-    `SELECT u.id_usuario, u.nombre, u.estatus,
+    `SELECT u.id_usuario, u.nombre, u.curp, u.estatus,
             o.nombre_oficio, a.nombre_alcaldia
      FROM musuario u
      JOIN coficio   o ON o.id_oficio   = u.id_oficio
@@ -17,7 +13,6 @@ async function obtenerDatosTrabajador(id_usuario) {
   return resultado.rows[0];
 }
 
-// Evaluaciones del usuario con su id (la más reciente de cada tipo va primero)
 async function obtenerEvaluacionesConId(id_usuario) {
   const resultado = await conexion.query(
     `SELECT id_evaluacion, tipo_evaluacion, estado_aprobacion
@@ -29,7 +24,6 @@ async function obtenerEvaluacionesConId(id_usuario) {
   return resultado.rows;
 }
 
-// Constancia más reciente del usuario (o undefined si no tiene)
 async function buscarConstanciaDeUsuario(id_usuario) {
   const resultado = await conexion.query(
     `SELECT id_constancia, codigo, fecha_emision, fecha_vencimiento, firma_digital
@@ -42,8 +36,6 @@ async function buscarConstanciaDeUsuario(id_usuario) {
   return resultado.rows[0];
 }
 
-// Crea la constancia. La fecha de vencimiento se calcula en la base:
-// hoy + los meses de vigencia que marca reglas.js.
 async function crearConstancia(datos) {
   const resultado = await conexion.query(
     `INSERT INTO mpre_constancia
@@ -65,9 +57,47 @@ async function crearConstancia(datos) {
   return resultado.rows[0];
 }
 
+async function reiniciarParaRenovar(id_usuario) {
+  const cliente = await conexion.connect();
+  try {
+    await cliente.query("BEGIN");
+    await cliente.query("DELETE FROM mpre_constancia WHERE id_usuario = $1", [
+      id_usuario,
+    ]);
+    await cliente.query(
+      `DELETE FROM erespuesta
+       WHERE id_evaluacion IN (
+         SELECT id_evaluacion FROM eevaluacion WHERE id_usuario = $1)`,
+      [id_usuario],
+    );
+    await cliente.query(
+      `UPDATE eevaluacion
+       SET calificacion = 0,
+           estado_aprobacion = 'Pendiente',
+           intentos_acumulados = 0,
+           fecha_ultimo_intento = NULL,
+           en_curso = false,
+           caso_actual = 1
+       WHERE id_usuario = $1`,
+      [id_usuario],
+    );
+    await cliente.query(
+      "UPDATE musuario SET estatus = 'En Diagnóstico' WHERE id_usuario = $1",
+      [id_usuario],
+    );
+    await cliente.query("COMMIT");
+  } catch (error) {
+    await cliente.query("ROLLBACK");
+    throw error;
+  } finally {
+    cliente.release();
+  }
+}
+
 module.exports = {
   obtenerDatosTrabajador,
   obtenerEvaluacionesConId,
   buscarConstanciaDeUsuario,
   crearConstancia,
+  reiniciarParaRenovar,
 };
