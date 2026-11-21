@@ -1,7 +1,3 @@
-// constancia_pdf.js
-// Diseño visual de la Pre-Constancia (hoja A4 horizontal).
-// Colores del maquetado: azul #1b4b73 y naranja #f7931e.
-
 const path = require("path");
 
 const LOGO_BLANCO = path.join(__dirname, "..", "recursos", "logo-blanco.png");
@@ -16,7 +12,6 @@ const GRIS_CLA = "#e3e8ec";
 
 const ANCHO_PANEL = 270;
 
-// Estrella de varios picos (sello con borde festoneado)
 function dibujarSello(doc, cx, cy, picos, radioExt, radioInt) {
   const puntos = [];
   for (let i = 0; i < picos * 2; i++) {
@@ -27,7 +22,6 @@ function dibujarSello(doc, cx, cy, picos, radioExt, radioInt) {
   doc.polygon(...puntos);
 }
 
-// Tarjeta de dato: barra naranja arriba, etiqueta y valor
 function dibujarTarjeta(doc, etiqueta, valor, x, y, ancho) {
   doc.roundedRect(x, y, ancho, 62, 4).fill("#f4f7fa");
   doc.rect(x, y, ancho, 3).fill(NARANJA);
@@ -41,7 +35,6 @@ function dibujarTarjeta(doc, etiqueta, valor, x, y, ancho) {
       lineBreak: false,
     });
 
-  // El valor se achica si es largo para que siempre quepa en la tarjeta
   let tamano = 14;
   doc.font("Helvetica-Bold").fontSize(tamano);
   while (doc.widthOfString(valor) > ancho - 24 && tamano > 8) {
@@ -54,35 +47,29 @@ function dibujarTarjeta(doc, etiqueta, valor, x, y, ancho) {
   });
 }
 
-// datos: { trabajador, constancia, emision, vencimiento, meses }
 function dibujarConstancia(doc, datos) {
   const { trabajador, constancia, emision, vencimiento } = datos;
   const meses = datos.meses || 12;
-  const W = doc.page.width; // 841.89
-  const H = doc.page.height; // 595.28
+  const W = doc.page.width;
+  const H = doc.page.height;
 
-  // ── Fondo y marca de agua ──
   doc.rect(0, 0, W, H).fill("#ffffff");
   doc.save();
   doc.opacity(0.05).image(LOGO_AZUL, ANCHO_PANEL + 150, 150, { width: 380 });
   doc.restore();
 
-  // ── Panel izquierdo con degradado ──
   const degradado = doc.linearGradient(0, 0, ANCHO_PANEL, H);
   degradado.stop(0, AZUL).stop(1, AZUL_OSC);
   doc.rect(0, 0, ANCHO_PANEL, H).fill(degradado);
 
-  // Círculos decorativos tenues
   doc.save();
   doc.opacity(0.07).fillColor("#ffffff");
   doc.circle(40, 560, 130).fill();
   doc.circle(250, 250, 70).fill();
   doc.restore();
 
-  // Franja naranja entre panel y contenido
   doc.rect(ANCHO_PANEL, 0, 7, H).fill(NARANJA);
 
-  // Logo y marca
   doc.image(LOGO_BLANCO, 38, 42, { fit: [110, 80] });
   doc
     .font("Helvetica-Bold")
@@ -104,7 +91,6 @@ function dibujarConstancia(doc, datos) {
     );
   doc.rect(38, 218, 34, 3).fill(NARANJA);
 
-  // Datos del documento (abajo del panel)
   const datosPanel = [
     ["Folio", constancia.codigo, 17],
     ["Fecha de emisión", emision, 13],
@@ -128,7 +114,6 @@ function dibujarConstancia(doc, datos) {
     y += 58;
   }
 
-  // ── Contenido derecho ──
   const X = ANCHO_PANEL + 52;
   const ANCHO = W - X - 50;
 
@@ -152,7 +137,6 @@ function dibujarConstancia(doc, datos) {
     .fillColor(AZUL)
     .text("de Preparación", X, 112, { lineBreak: false });
 
-  // Nombre del trabajador (se achica si es muy largo)
   doc
     .font("Helvetica")
     .fontSize(10)
@@ -197,7 +181,6 @@ function dibujarConstancia(doc, datos) {
       { width: ANCHO - 120, lineGap: 3 },
     );
 
-  // Tarjetas
   const sep = 14;
   const anchoT = (ANCHO - sep * 2) / 3;
   dibujarTarjeta(doc, "Oficio", trabajador.nombre_oficio, X, 326, anchoT);
@@ -218,7 +201,6 @@ function dibujarConstancia(doc, datos) {
     anchoT,
   );
 
-  // ── Sello (festoneado) ──
   const sx = W - 112;
   const sy = 470;
   dibujarSello(doc, sx, sy, 28, 56, 51);
@@ -255,7 +237,6 @@ function dibujarConstancia(doc, datos) {
       lineBreak: false,
     });
 
-  // ── Firma digital ──
   doc
     .font("Helvetica-Bold")
     .fontSize(7.5)
@@ -273,7 +254,6 @@ function dibujarConstancia(doc, datos) {
       lineGap: 2,
     });
 
-  // ── Aviso legal ──
   doc.rect(X, 515, ANCHO - 130, 0.7).fill(GRIS_CLA);
   doc
     .font("Helvetica-Oblique")

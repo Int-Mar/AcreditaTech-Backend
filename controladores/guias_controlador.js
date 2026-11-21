@@ -1,19 +1,8 @@
-// guias_controlador.js
-// Maneja las peticiones de las guías de capacitación.
-
 const modelo = require("../modelos/guias_modelo");
 const reglas = require("../reglas");
 
-// ── Ver guías ──────────────────────────────────────────────────────────────
-// GET /api/guias            → todas las guías del oficio del usuario
-// GET /api/guias?tipo=1     → solo las técnicas
-// GET /api/guias?tipo=2     → solo las de salud ocupacional
-// GET /api/guias?refuerzo=1 → solo las guías de los temas donde el trabajador
-//                             sacó el 50% o menos de los puntos (se puede
-//                             combinar con ?tipo=)
 async function verGuias(req, res) {
   try {
-    // Validar el filtro opcional ?tipo=
     let tipo = null;
     if (req.query.tipo !== undefined) {
       tipo = Number(req.query.tipo);
@@ -24,11 +13,9 @@ async function verGuias(req, res) {
       }
     }
 
-    // Filtro opcional ?refuerzo=1 (o true)
     const soloRefuerzo =
       req.query.refuerzo === "1" || req.query.refuerzo === "true";
 
-    // req.usuario viene de requiereSesion (trae id_usuario del token)
     const usuario = await modelo.obtenerOficioDeUsuario(req.usuario.id_usuario);
 
     if (!usuario) {
