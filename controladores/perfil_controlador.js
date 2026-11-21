@@ -4,6 +4,7 @@
 
 const { createClient } = require('@supabase/supabase-js');
 const modelo = require('../modelos/usuarios_modelo');
+const { esTexto, esNombre, esTelefono55 } = require('../seguridad/validaciones');
 
 // Conectar con Supabase Storage usando las variables del .env
 const supabase = createClient(
@@ -33,45 +34,40 @@ async function verPerfil(req, res) {
 
 // ── Editar perfil ──────────────────────────────────────────────────────────
 // PUT /api/perfil
-// Permite cambiar nombre, teléfono, alcaldía y oficio.
+// Permite cambiar SOLO nombre y teléfono (lo único que pide el formulario).
 async function editarPerfil(req, res) {
-  const { nombre, telefono, id_alcaldia, id_oficio } = req.body;
+  const { nombre: nombreCrudo, telefono } = req.body || {};
   const id_usuario = req.usuario.id_usuario;
 
-  // Validar que llegaron todos los campos
-  if (!nombre || !telefono || !id_alcaldia || !id_oficio) {
+  // Los dos campos deben llegar como texto
+  if (!esTexto(nombreCrudo) || !esTexto(telefono)) {
     return res.status(400).json({ mensaje: 'Faltan datos obligatorios' });
   }
 
-  // Validar nombre: solo letras, 5-25 caracteres
-  const regexNombre = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]{5,25}$/;
-  if (!regexNombre.test(nombre.trim())) {
+  const nombre = nombreCrudo.trim();
+
+  // Validar nombre: solo letras y espacios, 5-25 caracteres
+  if (!esNombre(nombre)) {
     return res.status(400).json({
       mensaje: 'Nombre inválido: solo letras, entre 5 y 25 caracteres'
     });
   }
 
   // Validar teléfono: 10 dígitos empezando con 55
-  const regexTel = /^55\d{8}$/;
-  if (!regexTel.test(telefono)) {
+  if (!esTelefono55(telefono)) {
     return res.status(400).json({
       mensaje: 'Teléfono inválido: 10 dígitos comenzando con 55'
     });
   }
 
-  // Verificar que el teléfono no lo tenga otro usuario
-  const telefonoOcupado = await modelo.buscarTelefonoDeOtro(telefono, id_usuario);
-  if (telefonoOcupado) {
-    return res.status(409).json({ mensaje: 'El teléfono ya está registrado' });
-  }
-
   try {
-    await modelo.actualizarPerfil(id_usuario, {
-      nombre:      nombre.trim(),
-      telefono,
-      id_alcaldia: Number(id_alcaldia),
-      id_oficio:   Number(id_oficio)
-    });
+    // Verificar que el teléfono no lo tenga otro usuario
+    const telefonoOcupado = await modelo.buscarTelefonoDeOtro(telefono, id_usuario);
+    if (telefonoOcupado) {
+      return res.status(409).json({ mensaje: 'El teléfono ya está registrado' });
+    }
+
+    await modelo.actualizarPerfil(id_usuario, { nombre, telefono });
 
     res.json({ mensaje: 'Perfil actualizado correctamente' });
 

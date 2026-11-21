@@ -79,6 +79,24 @@ async function obtenerOficios() {
   return resultado.rows;
 }
 
+// Revisa que la alcaldía exista (evita ids inventados)
+async function existeAlcaldia(id_alcaldia) {
+  const resultado = await conexion.query(
+    'SELECT 1 FROM calcaldia WHERE id_alcaldia = $1',
+    [id_alcaldia]
+  );
+  return resultado.rowCount > 0;
+}
+
+// Revisa que el oficio exista
+async function existeOficio(id_oficio) {
+  const resultado = await conexion.query(
+    'SELECT 1 FROM coficio WHERE id_oficio = $1',
+    [id_oficio]
+  );
+  return resultado.rowCount > 0;
+}
+
 // Busca todos los datos del perfil de un usuario por su id
 async function obtenerPerfil(id_usuario) {
   const resultado = await conexion.query(
@@ -95,17 +113,15 @@ async function obtenerPerfil(id_usuario) {
   return resultado.rows[0];
 }
 
-// Edita nombre, teléfono, alcaldía y oficio
+// Edita SOLO nombre y teléfono (la alcaldía y el oficio no se editan)
 async function actualizarPerfil(id_usuario, datos) {
   const resultado = await conexion.query(
     `UPDATE musuario
-     SET nombre      = $1,
-         telefono    = $2,
-         id_alcaldia = $3,
-         id_oficio   = $4
-     WHERE id_usuario = $5
+     SET nombre   = $1,
+         telefono = $2
+     WHERE id_usuario = $3
      RETURNING id_usuario`,
-    [datos.nombre, datos.telefono, datos.id_alcaldia, datos.id_oficio, id_usuario]
+    [datos.nombre, datos.telefono, id_usuario]
   );
   return resultado.rows[0];
 }
@@ -140,6 +156,8 @@ module.exports = {
   buscarParaLogin,
   obtenerAlcaldias,
   obtenerOficios,
+  existeAlcaldia,
+  existeOficio,
   obtenerPerfil,
   actualizarPerfil,
   actualizarFoto,
