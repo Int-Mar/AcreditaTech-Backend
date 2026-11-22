@@ -1,9 +1,5 @@
 const modelo = require('../modelos/administracion_modelo');
-const { esNombre, esTexto, esCorreoGmail } = require('../seguridad/validaciones');
-
-function esIdValido(valor) {
-  return Number.isInteger(Number(valor)) && Number(valor) > 0;
-}
+const { esNombre, esTexto, esCorreoGmail, esIdValido } = require('../seguridad/validaciones');
 
 function obtenerEstatus(req, res) {
   res.json(modelo.ESTATUS);
@@ -14,11 +10,24 @@ async function obtenerPadron(req, res) {
   if (!['proceso', 'preconstancia'].includes(tipo)) {
     return res.status(400).json({ mensaje: 'Tipo de padrón no válido' });
   }
+
+  // Un filtro vacío significa "todos". Si trae valor, debe ser válido.
+  const { alcaldia, oficio, estatus } = req.query;
+  if (alcaldia && !esIdValido(alcaldia)) {
+    return res.status(400).json({ mensaje: 'Alcaldía no válida' });
+  }
+  if (oficio && !esIdValido(oficio)) {
+    return res.status(400).json({ mensaje: 'Oficio no válido' });
+  }
+  if (estatus && !modelo.ESTATUS.todos.includes(estatus)) {
+    return res.status(400).json({ mensaje: 'Estatus no válido' });
+  }
+
   try {
     const trabajadores = await modelo.obtenerPadron(tipo, {
-      alcaldia: req.query.alcaldia,
-      oficio: req.query.oficio,
-      estatus: req.query.estatus,
+      alcaldia: alcaldia ? Number(alcaldia) : undefined,
+      oficio: oficio ? Number(oficio) : undefined,
+      estatus: estatus || undefined,
     });
     res.json({ trabajadores });
   } catch (error) {
@@ -27,7 +36,7 @@ async function obtenerPadron(req, res) {
 }
 
 async function cambiarEstatus(req, res) {
-  const { correo: correoCrudo, estatus } = req.body;
+  const { correo: correoCrudo, estatus } = req.body || {};
   const correo = esTexto(correoCrudo) ? correoCrudo.trim().toLowerCase() : '';
   
   if (!esCorreoGmail(correo)) {
@@ -60,12 +69,13 @@ async function obtenerPerfil(req, res) {
 }
 
 async function editarPerfil(req, res) {
-  const { nombre } = req.body;
+  const { nombre } = req.body || {};
   if (!esNombre(nombre)) {
     return res.status(400).json({ mensaje: 'Nombre: solo letras, de 5 a 25 caracteres' });
   }
   try {
-    const perfil = await modelo.actualizarNombreAdmin(req.usuario.id_usuario, nombre);
+    // Se guarda sin espacios sobrantes al inicio y al final
+    const perfil = await modelo.actualizarNombreAdmin(req.usuario.id_usuario, nombre.trim());
     res.json({ mensaje: 'Perfil actualizado', nombre: perfil.nombre });
   } catch (error) {
     res.status(500).json({ mensaje: 'Error al actualizar el perfil' });
