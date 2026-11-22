@@ -4,10 +4,12 @@
 
 const modelo = require('../modelos/evaluaciones_modelo');
 const reglas = require('../reglas');
+const { esIdValido } = require('../seguridad/validaciones');
 
 // Revisa que el tipo de la dirección sea 1 (técnica) o 2 (salud)
 function leerTipo(req) {
-  const tipo = parseInt(req.params.tipo, 10);
+  // Solo dígitos: antes parseInt convertía "1abc" en 1 y lo aceptaba
+  const tipo = /^\d+$/.test(req.params.tipo) ? Number(req.params.tipo) : null;
   if (tipo === reglas.TIPO_TECNICA || tipo === reglas.TIPO_SALUD) {
     return tipo;
   }
@@ -156,15 +158,14 @@ async function responder(req, res) {
     return res.status(400).json({ mensaje: 'Tipo de test inválido (usa 1 o 2)' });
   }
 
-  const id_pregunta = parseInt(req.body.id_pregunta, 10);
-  const enviadas = Array.isArray(req.body.id_opciones)
-    ? req.body.id_opciones.map((x) => parseInt(x, 10))
-    : [parseInt(req.body.id_opcion, 10)];
+    const { id_pregunta: idPreguntaCrudo, id_opcion, id_opciones } = req.body || {};
+  const enviadas = Array.isArray(id_opciones) ? id_opciones : [id_opcion];
 
-  if (!id_pregunta || enviadas.length === 0 || enviadas.some((x) => !x)) {
+  if (!esIdValido(idPreguntaCrudo) || enviadas.length === 0 || !enviadas.every(esIdValido)) {
     return res.status(400).json({ mensaje: 'Faltan id_pregunta e id_opcion' });
   }
-  const ids = [...new Set(enviadas)];
+  const id_pregunta = Number(idPreguntaCrudo);
+  const ids = [...new Set(enviadas.map(Number))];
 
   try {
     const id_usuario = req.usuario.id_usuario;
