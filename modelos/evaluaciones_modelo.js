@@ -50,23 +50,14 @@ async function empezarIntento(id_evaluacion) {
   return resultado.rows[0];
 }
 
-// Qué preguntas le tocan al usuario ($1 = tipo de test, $2 = su oficio):
-// las de su oficio. Si su oficio no tiene preguntas de ese tipo, se usan las
-// que no tienen oficio (generales). Así funciona tanto en bases donde las de
-// salud se cargaron por oficio como en las que se cargaron sin oficio.
-const FILTRO_OFICIO = `(
-         id_oficio = $2::int
-         OR (id_oficio IS NULL AND NOT EXISTS (
-               SELECT 1 FROM cpregunta x
-               WHERE x.id_tipo_evaluacion = $1 AND x.id_oficio = $2::int)))`;
-
 // Cuenta cuántas preguntas tiene el test para este usuario.
+// Técnico y salud: las preguntas de su oficio.
 async function contarPreguntas(tipo, id_oficio) {
   const resultado = await conexion.query(
     `SELECT COUNT(*)::int AS total
      FROM cpregunta
      WHERE id_tipo_evaluacion = $1
-       AND ${FILTRO_OFICIO}`,
+       AND (id_oficio = $2 OR ($2::int IS NULL AND id_oficio IS NULL))`,
     [tipo, id_oficio]
   );
   return resultado.rows[0].total;
@@ -79,7 +70,7 @@ async function obtenerPreguntaPorPosicion(tipo, id_oficio, posicion) {
     `SELECT id_pregunta, tema, texto, tipo_pregunta
      FROM cpregunta
      WHERE id_tipo_evaluacion = $1
-       AND ${FILTRO_OFICIO}
+       AND (id_oficio = $2 OR ($2::int IS NULL AND id_oficio IS NULL))
      ORDER BY id_pregunta
      OFFSET $3 LIMIT 1`,
     [tipo, id_oficio, posicion - 1]
