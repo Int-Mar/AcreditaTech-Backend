@@ -4,7 +4,7 @@
 
 const { createClient } = require('@supabase/supabase-js');
 const modelo = require('../modelos/usuarios_modelo');
-const { esTexto, esNombre, esTelefono55 } = require('../seguridad/validaciones');
+const { esTexto, esNombre, esTelefono55, esImagenReal } = require('../seguridad/validaciones');
 
 // Conectar con Supabase Storage usando las variables del .env
 const supabase = createClient(
@@ -91,6 +91,12 @@ async function subirFoto(req, res) {
   if (!tiposPermitidos.includes(req.file.mimetype)) {
     return res.status(400).json({ mensaje: 'Solo se permiten imágenes JPG o PNG' });
   }
+
+    // Validar que el contenido de verdad sea una imagen
+  if (!esImagenReal(req.file.buffer, req.file.mimetype)) {
+    return res.status(400).json({ mensaje: 'El archivo no es una imagen válida' });
+  }
+
 
   // Validar que no pese más de 2 MB (2 * 1024 * 1024 = 2097152 bytes)
   if (req.file.size > 2 * 1024 * 1024) {
