@@ -4,6 +4,7 @@
 const express     = require('express');
 const ruta        = express.Router();
 const controlador = require('../controladores/acceso_controlador');
+const { limitarLogin } = require('../seguridad/limite_intentos');
 
 // GET  /api/acceso/catalogos      → regresa alcaldías y oficios
 ruta.get('/catalogos', controlador.obtenerCatalogos);
@@ -12,6 +13,6 @@ ruta.get('/catalogos', controlador.obtenerCatalogos);
 ruta.post('/registro', controlador.registrar);
 
 // POST /api/acceso/iniciar-sesion → verifica credenciales y regresa un token
-ruta.post('/iniciar-sesion', controlador.iniciarSesion);
+ruta.post('/iniciar-sesion', limitarLogin, controlador.iniciarSesion);
 
 module.exports = ruta;

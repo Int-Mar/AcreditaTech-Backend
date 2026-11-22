@@ -4,6 +4,7 @@ const cors = require('cors');
 const conexion = require('./conexion');
 
 const app = express();
+app.set('trust proxy', 1); // así req.ip es la IP real
 app.use(cors({ origin: process.env.URL_PAGINA_WEB }));
 app.use(express.json());
 
