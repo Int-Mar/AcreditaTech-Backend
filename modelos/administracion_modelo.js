@@ -7,7 +7,7 @@ const ESTATUS = {
 };
 ESTATUS.todos = [...ESTATUS.proceso, ...ESTATUS.preconstancia];
 
-// ---------- Padrón (lo usa menu.js) ----------
+// Padrón (lo usa menu.js)
 async function obtenerPadron(tipo, { alcaldia, oficio, estatus }) {
   const valores = [ESTATUS[tipo]];
   const condiciones = ['u.id_tipo_usuario = 1', 'u.estatus = ANY($1)'];
