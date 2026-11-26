@@ -9,10 +9,10 @@ const esTexto = (v) => typeof v === 'string';
 const REGLA_NOMBRE = /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü ]{5,25}$/;
 const esNombre = (v) => esTexto(v) && REGLA_NOMBRE.test(v.trim());
 
-// Correo: solo @gmail.com, máximo 50 caracteres.
+// Correo: solo @gmail.com, @outlook.com o @hotmail.com, máximo 50 caracteres.
 // Antes del @ solo se aceptan letras, números y los símbolos . _ % + -
-const REGLA_CORREO = /^[A-Za-z0-9._%+\-]+@gmail\.com$/i;
-const esCorreoGmail = (v) =>
+const REGLA_CORREO = /^[A-Za-z0-9._%+\-]+@(gmail|outlook|hotmail)\.com$/i;
+const esCorreoValido = (v) =>
   esTexto(v) && v.trim().length <= 50 && REGLA_CORREO.test(v.trim());
 
 // Teléfono: 10 dígitos que empiezan con 55
@@ -53,6 +53,6 @@ function esImagenReal(buffer, mimetype) {
 }
 
 module.exports = {
-  esTexto, esNombre, esCorreoGmail, esTelefono55,
+  esTexto, esNombre, esCorreoValido, esTelefono55,
   esContrasena, esCurp, esIdValido, esImagenReal,
 };

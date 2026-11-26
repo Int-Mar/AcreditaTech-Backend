@@ -1,5 +1,5 @@
 const modelo = require('../modelos/administracion_modelo');
-const { esNombre, esTexto, esCorreoGmail, esIdValido } = require('../seguridad/validaciones');
+const { esNombre, esTexto, esCorreoValido, esIdValido } = require('../seguridad/validaciones');
 
 function obtenerEstatus(req, res) {
   res.json(modelo.ESTATUS);
@@ -39,8 +39,8 @@ async function cambiarEstatus(req, res) {
   const { correo: correoCrudo, estatus } = req.body || {};
   const correo = esTexto(correoCrudo) ? correoCrudo.trim().toLowerCase() : '';
   
-  if (!esCorreoGmail(correo)) {
-    return res.status(400).json({ mensaje: 'Correo: debe terminar en @gmail.com (máximo 50)' });
+  if (!esCorreoValido(correo)) {
+    return res.status(400).json({ mensaje: 'Correo: debe terminar en @gmail.com, @outlook.com o @hotmail.com (máximo 50)' });
   }
 
   if (!modelo.ESTATUS.todos.includes(estatus)) {
@@ -124,8 +124,8 @@ async function actualizarUsuario(req, res) {
   }
 
     if (correo !== undefined &&
-      !(typeof correo === 'string' && esCorreoGmail(correo.trim().toLowerCase()))) {
-    return res.status(400).json({ error: 'Correo: debe terminar en @gmail.com (máximo 50)' });
+      !(typeof correo === 'string' && esCorreoValido(correo.trim().toLowerCase()))) {
+    return res.status(400).json({ error: 'Correo: debe terminar en @gmail.com, @outlook.com o @hotmail.com (máximo 50)' });
   }
 
   try {

@@ -5,7 +5,7 @@ const bcrypt = require('bcryptjs');
 const jwt    = require('jsonwebtoken');
 const modelo = require('../modelos/usuarios_modelo');
 const {
-  esTexto, esNombre, esCorreoGmail, esTelefono55,
+  esTexto, esNombre, esCorreoValido, esTelefono55,
   esContrasena, esCurp, esIdValido,
 } = require('../seguridad/validaciones');
 
@@ -56,9 +56,9 @@ async function registrar(req, res) {
       mensaje: 'Teléfono inválido: 10 dígitos comenzando con 55'
     });
   }
-  if (!esCorreoGmail(correo)) {
+  if (!esCorreoValido(correo)) {
     return res.status(400).json({
-      mensaje: 'Correo inválido: debe ser @gmail.com de máximo 50 caracteres'
+      mensaje: 'Correo inválido: debe ser @gmail.com, @outlook.com o @hotmail.com de máximo 50 caracteres'
     });
   }
   if (!esContrasena(contrasena)) {
